@@ -12,6 +12,9 @@ import kafkavisualizer.models.Consumer;
 import kafkavisualizer.models.HeaderRow;
 import kafkavisualizer.navigator.actions.EditConsumerAction;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -36,6 +39,7 @@ import java.util.Optional;
 
 public class ConsumerDetailsController {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ConsumerDetailsController.class);
     private static final String CIPHER_ALGORITHM_MODE_AND_PADDING = "AES/GCM/NoPadding";
     private static final String PLAINTEXT_KEY_ID = "plaintext";
 
@@ -172,16 +176,22 @@ public class ConsumerDetailsController {
                 switch (consumer.getValueFormat()) {
                     case JSON:
                         value = Utils.beautifyJSON(value);
+                        pane.getConsumerEventPane().getValueTextArea().setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JSON);
                         break;
                     case XML:
                         value = Utils.beautifyXML(value);
+                        pane.getConsumerEventPane().getValueTextArea().setCodeFoldingEnabled(true);
+                        pane.getConsumerEventPane().getValueTextArea().setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_XML);
                         break;
                     case PLAIN_TEXT:
                     default:
                         break;
                 }
             }
+            Stopwatch sw = Stopwatch.createStarted();
             pane.getConsumerEventPane().getValueTextArea().setText(value);
+            LOG.info("Set text area value of length {} in {}", value.length(), sw);
+
             pane.getConsumerEventPane().getValueTextArea().setCaretPosition(0);
 
             var key = record.key();

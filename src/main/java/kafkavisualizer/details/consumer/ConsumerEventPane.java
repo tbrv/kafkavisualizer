@@ -1,6 +1,8 @@
 package kafkavisualizer.details.consumer;
 
 import kafkavisualizer.Utils;
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,7 +12,7 @@ public class ConsumerEventPane extends JPanel {
     private final JPanel valuePane;
     private final JPanel keyPane;
     private final JPanel headersPane;
-    private final JTextArea valueTextArea;
+    private final RSyntaxTextArea valueTextArea;
     private final JCheckBox valueTextAreaWordWrapCheckBox;
     private final JCheckBox valueTextAreaFormatCheckBox;
     private final JTextArea keyTextArea;
@@ -28,10 +30,11 @@ public class ConsumerEventPane extends JPanel {
         valueToolbar.add(valueTextAreaWordWrapCheckBox);
         valueToolbar.add(valueTextAreaFormatCheckBox);
         valuePane.add(valueToolbar, BorderLayout.NORTH);
-        valueTextArea = new JTextArea();
+        valueTextArea = new RSyntaxTextArea();
         valueTextArea.setLineWrap(false);
         valueTextArea.setFont(Utils.getMonoFont());
         valueTextArea.setEditable(false);
+        valueTextArea.setCodeFoldingEnabled(true);
         valuePane.add(new JScrollPane(valueTextArea), BorderLayout.CENTER);
 
         keyPane = new JPanel();
@@ -77,7 +80,7 @@ public class ConsumerEventPane extends JPanel {
         return headersPane;
     }
 
-    public JTextArea getValueTextArea() {
+    public RSyntaxTextArea getValueTextArea() {
         return valueTextArea;
     }
 
