@@ -1,5 +1,8 @@
 package kafkavisualizer.details.consumer;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.hash.Hashing;
+import kafkavisualizer.App;
 import kafkavisualizer.Utils;
 import kafkavisualizer.details.consumer.actions.ClearAction;
 import kafkavisualizer.details.consumer.actions.StartAction;
@@ -8,7 +11,14 @@ import kafkavisualizer.models.Cluster;
 import kafkavisualizer.models.Consumer;
 import kafkavisualizer.models.HeaderRow;
 import kafkavisualizer.navigator.actions.EditConsumerAction;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -16,12 +26,21 @@ import javax.swing.table.AbstractTableModel;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
 public class ConsumerDetailsController {
 
+    private static final String CIPHER_ALGORITHM_MODE_AND_PADDING = "AES/GCM/NoPadding";
+    private static final String PLAINTEXT_KEY_ID = "plaintext";
+
     public static class HeadersTableModel extends AbstractTableModel {
+
         private static final String[] COL_NAMES = {"Key", "Value"};
         private final List<HeaderRow> headerRows = new ArrayList<>();
 
@@ -57,6 +76,7 @@ public class ConsumerDetailsController {
     }
 
     public class ConsumerTableSelectionListener implements ListSelectionListener {
+
         @Override
         public void valueChanged(ListSelectionEvent e) {
             updateConsumerPane();
@@ -123,7 +143,6 @@ public class ConsumerDetailsController {
 
         columnModel.getColumn(5).setPreferredWidth(300); // value
 
-
         pane.getConsumerEventPane().getValueTextAreaWordWrapCheckBox().addActionListener(e -> {
             var selected = pane.getConsumerEventPane().getValueTextAreaWordWrapCheckBox().isSelected();
             pane.getConsumerEventPane().getValueTextArea().setLineWrap(selected);
@@ -148,7 +167,7 @@ public class ConsumerDetailsController {
             var selectedRow = pane.getTable().getSelectedRow();
             var record = consumerTableModel.getSelectedRecord(selectedRow);
 
-            String value = record.value();
+            String value = maybeDecryptValue(record);
             if (pane.getConsumerEventPane().getValueTextAreaFormatCheckBox().isSelected()) {
                 switch (consumer.getValueFormat()) {
                     case JSON:
@@ -188,12 +207,77 @@ public class ConsumerDetailsController {
                 headersTableModel.getHeaders().add(new HeaderRow(header.key(), v));
             }
             headersTableModel.fireTableDataChanged();
-
         } else {
             pane.getConsumerEventPane().getValueTextArea().setText("");
             pane.getConsumerEventPane().getKeyTextArea().setText("");
             headersTableModel.getHeaders().clear();
         }
+    }
+
+    private String maybeDecryptValue(ConsumerRecord<String, byte[]> kafkaRecord) {
+        return getEncryptionMetadata(kafkaRecord)
+                .flatMap(encryptionMetadata -> decrypt(kafkaRecord.value(), encryptionMetadata))
+                .map(plaintextBytes -> new String(plaintextBytes, StandardCharsets.UTF_8))
+                .orElse(new String(kafkaRecord.value(), StandardCharsets.UTF_8));
+    }
+
+    private Optional<EncryptionMetadata> getEncryptionMetadata(ConsumerRecord<String, byte[]> kafkaRecord) {
+        var aesKeyId = getFirstHeaderValue("aes_key_id", kafkaRecord).orElse(null);
+        var aesIv = getFirstHeaderValue("aes_iv", kafkaRecord).orElse(null);
+
+        var aesKeyIdStr = aesKeyId == null ? "" : new String(aesKeyId, StandardCharsets.UTF_8);
+
+        if (aesKeyIdStr.equals(PLAINTEXT_KEY_ID) || aesKeyIdStr.isEmpty()) {
+            return Optional.of(new EncryptionMetadata(PLAINTEXT_KEY_ID, new byte[]{}, new byte[]{}));
+        }
+
+        var aesKey = cluster.getAesKeys().stream().filter(key -> {
+            var sha256 = Hashing.sha256().hashString(key, StandardCharsets.UTF_8).toString();
+            return aesKeyIdStr.endsWith(sha256);
+        }).findFirst().map(key -> Base64.getDecoder().decode(key)).orElse(null);
+        if (aesKey == null) {
+            App.getAppController().getStatusController().setEastStatus("No AES key with ID " + aesKeyIdStr + " provided");
+            return Optional.empty();
+        }
+
+        if (aesIv == null || aesIv.length != 12) {
+            App.getAppController().getStatusController().setEastStatus("IV is invalid: " + (aesIv == null ? "missing" : "expected 32 bytes, got " + aesIv.length));
+            return Optional.empty();
+        }
+        return Optional.of(new EncryptionMetadata(aesKeyIdStr, aesKey, aesIv));
+    }
+
+    private Optional<byte[]> decrypt(byte[] encryptedBytes, EncryptionMetadata encryptionMetadata) {
+        Stopwatch sw = Stopwatch.createStarted();
+        if (encryptionMetadata.aesKeyId.matches(PLAINTEXT_KEY_ID)) {
+            App.getAppController().getStatusController().setEastStatus("Plaintext");
+            return Optional.of(encryptedBytes);
+        }
+
+        SecretKeySpec secretKey = new SecretKeySpec(encryptionMetadata.aesKey, "AES");
+        Cipher cipher;
+        try {
+            cipher = Cipher.getInstance(CIPHER_ALGORITHM_MODE_AND_PADDING);
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(8 * encryptionMetadata.aesIv.length, encryptionMetadata.aesIv));
+
+            byte[] plaintextBytes = cipher.doFinal(encryptedBytes);
+
+            App.getAppController().getStatusController().setEastStatus(String.format("Decrypted in %s with key ID %s", sw, encryptionMetadata.aesKeyId));
+
+            return Optional.of(plaintextBytes);
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
+                 InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+            App.getAppController().getStatusController().setEastStatus("Cannot decrypt: " + e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<byte[]> getFirstHeaderValue(String key, ConsumerRecord<?, ?> kafkaRecord) {
+        var iterator = kafkaRecord.headers().headers(key).iterator();
+        if (iterator.hasNext()) {
+            return Optional.of(iterator.next().value());
+        }
+        return Optional.empty();
     }
 
     public void start() {

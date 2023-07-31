@@ -3,18 +3,20 @@ package kafkavisualizer.details.consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import javax.swing.table.AbstractTableModel;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
 public class ConsumerTableModel extends AbstractTableModel {
+
     private static final String[] COL_NAMES = {"Timestamp", "Topic", "Partition", "Offset", "Key", "Value"};
-    private final List<ConsumerRecord<String, String>> records = new ArrayList<>();
+    private final List<ConsumerRecord<String, byte[]>> records = new ArrayList<>();
     private String searchText = null;
-    private List<ConsumerRecord<String, String>> filteredRecords = new ArrayList<>();
-    private final Predicate<ConsumerRecord<String, String>> filterPredicate = r -> searchText == null || searchText.trim().length() == 0 ||
-            (r.value() != null && r.value().contains(searchText)) || (r.key() != null && r.key().contains(searchText));
+    private List<ConsumerRecord<String, byte[]>> filteredRecords = new ArrayList<>();
+    private final Predicate<ConsumerRecord<String, byte[]>> filterPredicate = r -> searchText == null || searchText.trim().length() == 0 ||
+            (r.value() != null && new String(r.value(), StandardCharsets.UTF_8).contains(searchText)) || (r.key() != null && r.key().contains(searchText));
 
     @Override
     public String getColumnName(int column) {
@@ -48,13 +50,13 @@ public class ConsumerTableModel extends AbstractTableModel {
             case 4:
                 return record.key();
             case 5:
-                return record.value();
+                return new String(record.value(), StandardCharsets.UTF_8);
             default:
                 return "";
         }
     }
 
-    public void addRecord(ConsumerRecord<String, String> record) {
+    public void addRecord(ConsumerRecord<String, byte[]> record) {
         records.add(record);
         if (filterPredicate.test(record)) {
             filteredRecords.add(record);
@@ -66,7 +68,7 @@ public class ConsumerTableModel extends AbstractTableModel {
         filteredRecords.clear();
     }
 
-    public ConsumerRecord<String, String> getSelectedRecord(int selectedRow) {
+    public ConsumerRecord<String, byte[]> getSelectedRecord(int selectedRow) {
         return filteredRecords.get(filteredRecords.size() - selectedRow - 1);
     }
 
