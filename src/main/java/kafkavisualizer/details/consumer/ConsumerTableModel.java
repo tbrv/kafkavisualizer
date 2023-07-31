@@ -50,7 +50,7 @@ public class ConsumerTableModel extends AbstractTableModel {
             case 4:
                 return record.key();
             case 5:
-                return new String(record.value(), StandardCharsets.UTF_8);
+                return new String(record.value(), 0, Math.min(500, record.value().length));
             default:
                 return "";
         }
