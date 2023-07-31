@@ -12,6 +12,11 @@ import kafkavisualizer.navigator.ClusterPane;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 public class NewClusterAction extends AbstractAction {
 
@@ -45,12 +50,17 @@ public class NewClusterAction extends AbstractAction {
         dialogController.addOKAction(e1 -> {
             var name = clusterPane.getNameTextField().getText();
             var servers = clusterPane.getServersTextField().getText();
+            var aesKeys = clusterPane.getAesKeysTextField().getText();
 
-            if (name == null || name.trim().length() == 0 || servers == null || servers.trim().length() == 0) {
+            if (name == null || name.trim().length() == 0
+                    || servers == null || servers.trim().length() == 0
+                    || aesKeys == null || aesKeys.trim().length() == 0) {
                 return;
             }
 
-            var cluster = new Cluster(name, servers);
+            var aesKeysSplit = Arrays.stream(aesKeys.split(",")).map(String::trim).collect(toList());
+
+            var cluster = new Cluster(name, servers, aesKeysSplit);
             navigatorController.addCluster(cluster);
             dialogController.closeDialog();
         });

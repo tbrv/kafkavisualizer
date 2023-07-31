@@ -7,8 +7,10 @@ import javax.swing.*;
 import java.awt.*;
 
 public class ClusterInfoPane extends JPanel {
+
     private final JLabel nameLabel;
     private final JLabel serversLabel;
+    private final JLabel aesKeysLabel;
 
     public ClusterInfoPane() {
         var layout = new MigLayout(
@@ -32,6 +34,10 @@ public class ClusterInfoPane extends JPanel {
         add(new InfoLabel("Servers"));
         serversLabel = new JLabel();
         add(serversLabel, "growx");
+
+        add(new InfoLabel("AES keys"));
+        aesKeysLabel = new JLabel();
+        add(aesKeysLabel, "growx");
     }
 
     public JLabel getNameLabel() {
@@ -40,5 +46,9 @@ public class ClusterInfoPane extends JPanel {
 
     public JLabel getServersLabel() {
         return serversLabel;
+    }
+
+    public JLabel getAesKeysLabel() {
+        return aesKeysLabel;
     }
 }

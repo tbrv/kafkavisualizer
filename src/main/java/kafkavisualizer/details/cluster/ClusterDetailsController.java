@@ -5,7 +5,10 @@ import kafkavisualizer.events.EventBus;
 import kafkavisualizer.events.EventObserver;
 import kafkavisualizer.models.Cluster;
 
+import java.util.stream.Collectors;
+
 public class ClusterDetailsController implements EventObserver {
+
     private Cluster cluster;
     private final ClusterDetailsPane clusterDetailsPane;
 
@@ -30,6 +33,7 @@ public class ClusterDetailsController implements EventObserver {
     public void updateView() {
         clusterDetailsPane.getClusterInfoPane().getNameLabel().setText(cluster.getName());
         clusterDetailsPane.getClusterInfoPane().getServersLabel().setText(cluster.getServers());
+        clusterDetailsPane.getClusterInfoPane().getAesKeysLabel().setText(String.join(",", cluster.getAesKeys()));
     }
 
     @Override
@@ -38,5 +42,4 @@ public class ClusterDetailsController implements EventObserver {
 //            this.setCluster((Cluster)payload);
 //        }
     }
-
 }

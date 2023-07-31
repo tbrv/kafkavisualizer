@@ -4,20 +4,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class Cluster {
+
     private String name;
     private String servers;
+    private List<String> aesKeys;
     private List<Producer> producers;
     private List<Consumer> consumers;
 
-    public Cluster(String name, String servers) {
+    public Cluster(String name, String servers, List<String> aesKeys) {
         this.name = name;
         this.servers = servers;
+        this.aesKeys = aesKeys;
         producers = new ArrayList<>();
         consumers = new ArrayList<>();
     }
 
     public Cluster() {
-        this(null, null);
+        this(null, null, new ArrayList<>());
     }
 
     @Override
@@ -55,5 +58,13 @@ public final class Cluster {
 
     public void setConsumers(List<Consumer> consumers) {
         this.consumers = consumers;
+    }
+
+    public List<String> getAesKeys() {
+        return aesKeys;
+    }
+
+    public void setAesKeys(List<String> aesKeys) {
+        this.aesKeys = aesKeys;
     }
 }

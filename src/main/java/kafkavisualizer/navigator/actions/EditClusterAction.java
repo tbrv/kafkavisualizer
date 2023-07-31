@@ -10,6 +10,12 @@ import kafkavisualizer.navigator.nodes.ClusterNode;
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 public class EditClusterAction extends AbstractAction {
 
@@ -31,12 +37,15 @@ public class EditClusterAction extends AbstractAction {
         var dialogController = new DialogController(App.contentPane(), clusterPane, "Edit Cluster");
         clusterPane.getNameTextField().setText(cluster.getName());
         clusterPane.getServersTextField().setText(cluster.getServers());
+        clusterPane.getAesKeysTextField().setText(String.join(",", cluster.getAesKeys()));
 
         dialogController.addOKAction(e1 -> {
             var name = clusterPane.getNameTextField().getText();
             var servers = clusterPane.getServersTextField().getText();
+            var aesKeys = clusterPane.getAesKeysTextField().getText();
 
-            if (name == null || name.trim().length() == 0 || servers == null || servers.trim().length() == 0) {
+            if (name == null || name.trim().length() == 0
+                    || servers == null || servers.trim().length() == 0) {
                 return;
             }
 
@@ -49,8 +58,14 @@ public class EditClusterAction extends AbstractAction {
                 App.getAppController().getDetailsController().clearConsumers(cluster);
             }
 
+            List<String> aesKeysSplit = new ArrayList<>();
+            if (aesKeys != null) {
+                aesKeysSplit = Arrays.stream(aesKeys.trim().split(",")).map(String::trim).collect(toList());
+            }
+
             cluster.setName(name);
             cluster.setServers(servers);
+            cluster.setAesKeys(aesKeysSplit);
 
             try {
                 controller.getNavigatorModel().save();
@@ -59,7 +74,6 @@ public class EditClusterAction extends AbstractAction {
             }
             //controller.updateTreeFromModel();
             dialogController.closeDialog();
-
         });
         dialogController.addCancelAction(e1 -> dialogController.closeDialog());
         dialogController.showDialog();
