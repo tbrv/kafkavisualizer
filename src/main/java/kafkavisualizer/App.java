@@ -4,12 +4,17 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import com.formdev.flatlaf.util.SystemInfo;
 import kafkavisualizer.app.AppController;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
 
 public class App {
+
+    private static final Logger LOG = LoggerFactory.getLogger(App.class);
+
     private static AppController appController;
 
     public static AppController getAppController() {
@@ -37,6 +42,7 @@ public class App {
     }
 
     public static void main(String[] args) {
+        LOG.debug("Starting");
         try {
             if (SystemInfo.isMacOS) {
                 System.setProperty("apple.laf.useScreenMenuBar", "true");
@@ -60,5 +66,4 @@ public class App {
             appController.start();
         });
     }
-
 }
